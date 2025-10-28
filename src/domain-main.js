@@ -198,17 +198,8 @@ try {
         
         useSessionPool: true,
         persistCookiesPerSession: true,
-        
-        // Lighter delays for domain.com.au (less aggressive blocking)
-        preNavigationHooks: [
-            async ({ request, log }) => {
-                const delay = Math.random() * 3000 + 2000; // 2-5 seconds
-                log.info(`Waiting ${Math.round(delay/1000)}s before request...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            },
-        ],
 
-        async requestHandler({ request, page, log, crawler }) {
+        async requestHandler({ request, $, log, crawler }) {
             const { label } = request.userData;
             
             log.info(`Processing ${label}: ${request.url}`);
