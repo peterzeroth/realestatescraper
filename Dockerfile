@@ -1,5 +1,5 @@
-# Use Apify's Node.js image with Playwright and Chrome
-FROM apify/actor-node-playwright-chrome:20
+# Use Apify's base Node.js image (lighter, no browser needed)
+FROM apify/actor-node:20
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
