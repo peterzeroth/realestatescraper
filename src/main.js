@@ -208,7 +208,6 @@ try {
     if (requests.length === 0) {
         console.log('No addresses or URLs provided. Please provide at least one address or URL.');
         await Actor.exit();
-        return;
     }
 
     // Initialize the crawler
