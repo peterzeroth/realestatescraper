@@ -1,0 +1,27 @@
+{
+  "name": "real-estate-scraper",
+  "version": "1.0.0",
+  "description": "Apify actor for scraping real estate listings",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "apify",
+    "real-estate",
+    "scraper",
+    "crawler"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "apify": "^3.0.0",
+    "cheerio": "^1.0.0-rc.12",
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  }
+}
+

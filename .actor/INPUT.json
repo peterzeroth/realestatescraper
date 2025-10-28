@@ -1,0 +1,12 @@
+{
+  "startUrls": [
+    {
+      "url": "https://example.com/listings"
+    }
+  ],
+  "maxRequestsPerCrawl": 10,
+  "proxyConfiguration": {
+    "useApifyProxy": false
+  }
+}
+

@@ -1,0 +1,36 @@
+{
+  "title": "Real Estate Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrls": {
+      "title": "Start URLs",
+      "type": "array",
+      "description": "List of URLs to start scraping from",
+      "prefill": [
+        {
+          "url": "https://example.com/listings"
+        }
+      ],
+      "editor": "requestListSources"
+    },
+    "maxRequestsPerCrawl": {
+      "title": "Max Requests Per Crawl",
+      "type": "integer",
+      "description": "Maximum number of pages to crawl",
+      "default": 100,
+      "minimum": 1
+    },
+    "proxyConfiguration": {
+      "title": "Proxy Configuration",
+      "type": "object",
+      "description": "Proxy settings for the crawler",
+      "prefill": {
+        "useApifyProxy": true
+      },
+      "editor": "proxy"
+    }
+  },
+  "required": ["startUrls"]
+}
+

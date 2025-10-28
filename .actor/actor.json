@@ -1,0 +1,36 @@
+{
+  "actorSpecification": 1,
+  "name": "real-estate-scraper",
+  "title": "Real Estate Listing Scraper",
+  "description": "Scrapes real estate listings from various websites",
+  "version": "1.0.0",
+  "meta": {
+    "templateId": "js-start"
+  },
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile",
+  "readme": "./README.md",
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "Real Estate Listings",
+      "views": {
+        "default": {
+          "title": "Listings",
+          "transformation": {
+            "fields": [
+              "title",
+              "price",
+              "address",
+              "bedrooms",
+              "bathrooms",
+              "squareFeet",
+              "url"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
