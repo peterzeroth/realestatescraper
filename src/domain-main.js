@@ -204,6 +204,7 @@ try {
                 args: [
                     '--disable-blink-features=AutomationControlled',
                     '--disable-features=site-per-process',
+                    '--disable-http2',  // Disable HTTP/2 to avoid protocol errors
                 ],
             },
         },
