@@ -20,7 +20,7 @@
     "apify": "^3.0.0",
     "crawlee": "^3.0.0",
     "cheerio": "^1.0.0-rc.12",
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^23.0.0"
   },
   "devDependencies": {
     "eslint": "^8.0.0"
