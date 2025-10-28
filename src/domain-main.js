@@ -99,7 +99,7 @@ async function extractPropertyData(page, url, log) {
                 
                 // Wait for the image viewer carousel to appear
                 await page.waitForSelector('[data-testid="pswp-thumbnails-carousel"] .css-dk278u', { timeout: 10000 });
-                await page.waitForTimeout(2000); // Give images time to load
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Give images time to load
                 
                 // Extract all image URLs from the thumbnail carousel
                 data.images = await page.evaluate(() => {
