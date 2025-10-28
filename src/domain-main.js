@@ -105,98 +105,49 @@ function extractPropertyData($, url, log) {
             data.listingId = idMatch[1];
         }
 
-        // Extract images - try multiple methods
-        const imageUrls = new Set(); // Use Set to avoid duplicates
+        // Extract property images that are visible on the page
+        const imageUrls = new Set();
 
-        // Method 1: Look for gallery/carousel images
-        $('img[src*="domain.com.au"], img[data-src*="domain.com.au"]').each((i, el) => {
+        // Look for all images on the page
+        $('img').each((i, el) => {
             const src = $(el).attr('src') || $(el).attr('data-src');
-            if (src && (src.includes('jpg') || src.includes('jpeg') || src.includes('png') || src.includes('webp'))) {
-                // Get high-res version if possible
-                const highResSrc = src.replace(/\/\d+x\d+/, '/2000x1500').replace(/-small|-medium/, '-large');
-                imageUrls.add(highResSrc);
-            }
-        });
-
-        // Method 2: Look in srcset attributes for high-res images
-        $('img[srcset]').each((i, el) => {
-            const srcset = $(el).attr('srcset');
-            if (srcset && srcset.includes('domain.com.au')) {
-                // Parse srcset and get the highest resolution
-                const sources = srcset.split(',').map(s => s.trim().split(' '));
-                sources.forEach(([url, size]) => {
-                    if (url && (url.includes('jpg') || url.includes('jpeg') || url.includes('png') || url.includes('webp'))) {
-                        imageUrls.add(url);
-                    }
-                });
-            }
-        });
-
-        // Method 3: Look for picture elements
-        $('picture source').each((i, el) => {
-            const srcset = $(el).attr('srcset');
-            if (srcset && srcset.includes('domain.com.au')) {
-                const url = srcset.split(',')[0].split(' ')[0];
-                if (url) imageUrls.add(url);
-            }
-        });
-
-        // Method 4: Look in script tags for image data (common in SPAs)
-        $('script').each((i, el) => {
-            const scriptContent = $(el).html();
-            if (scriptContent) {
-                // Look for image URLs in JSON data
-                const imageMatches = scriptContent.match(/https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*/gi);
-                if (imageMatches) {
-                    imageMatches.forEach(url => {
-                        if (url.includes('domain.com.au') && !url.includes('logo') && !url.includes('icon')) {
-                            imageUrls.add(url);
+            
+            if (src && src.startsWith('http')) {
+                // Only include property images from bucket-api (domain's image hosting)
+                if (src.includes('bucket-api.domain.com.au') || 
+                    (src.includes('domain.com.au') && (src.includes('/image/') || src.includes('/bucket/')))) {
+                    
+                    // Skip small thumbnails, icons, logos
+                    if (!src.includes('40x40') && 
+                        !src.includes('50x50') && 
+                        !src.includes('60x60') &&
+                        !src.includes('logo') && 
+                        !src.includes('icon') &&
+                        !src.includes('avatar')) {
+                        
+                        // Try to get largest version
+                        let finalUrl = src;
+                        
+                        // If it has size in URL, upgrade to high-res
+                        if (src.match(/\/\d+x\d+\//)) {
+                            finalUrl = src.replace(/\/\d+x\d+\//, '/2000x1500/');
                         }
-                    });
-                }
-            }
-        });
-
-        // Method 5: Look for data attributes that might contain image info
-        $('[data-images], [data-gallery], [data-photos]').each((i, el) => {
-            const dataStr = $(el).attr('data-images') || $(el).attr('data-gallery') || $(el).attr('data-photos');
-            if (dataStr) {
-                try {
-                    const imageData = JSON.parse(dataStr);
-                    if (Array.isArray(imageData)) {
-                        imageData.forEach(img => {
-                            if (typeof img === 'string') imageUrls.add(img);
-                            else if (img.url) imageUrls.add(img.url);
-                            else if (img.src) imageUrls.add(img.src);
-                        });
+                        
+                        imageUrls.add(finalUrl);
+                        
+                        // Also log the first few for debugging
+                        if (imageUrls.size <= 3) {
+                            log.info(`Sample image URL: ${finalUrl.substring(0, 80)}...`);
+                        }
                     }
-                } catch (e) {
-                    // Not JSON, might be comma-separated URLs
-                    const urls = dataStr.split(',').map(u => u.trim());
-                    urls.forEach(url => {
-                        if (url.startsWith('http')) imageUrls.add(url);
-                    });
                 }
             }
         });
 
-        // Convert Set to Array and filter out thumbnails/small images
-        data.images = Array.from(imageUrls).filter(url => {
-            // Filter out very small images (likely icons/logos)
-            return !url.includes('icon') && 
-                   !url.includes('logo') && 
-                   !url.includes('avatar') &&
-                   !url.includes('40x40') &&
-                   !url.includes('50x50');
-        });
-
+        data.images = Array.from(imageUrls);
         data.imageCount = data.images.length;
 
-        if (data.imageCount > 0) {
-            log.info(`Found ${data.imageCount} images`);
-        } else {
-            log.warning('No images found - page structure may have changed');
-        }
+        log.info(`Found ${data.imageCount} property images on the page`);
 
         return data;
     } catch (error) {
