@@ -141,6 +141,13 @@ try {
             });
             console.log(`Added search URL: ${searchUrl}`);
         }
+        
+        // Warn if maxRequestsPerCrawl is too low
+        const minRequired = addresses.length * 2; // Each address = search page + property page(s)
+        if (maxRequestsPerCrawl < minRequired) {
+            console.log(`WARNING: maxRequestsPerCrawl (${maxRequestsPerCrawl}) may be too low for ${addresses.length} addresses.`);
+            console.log(`Recommended: At least ${minRequired} (each address needs: 1 search + 1+ properties)`);
+        }
     }
 
     // Add direct property URLs

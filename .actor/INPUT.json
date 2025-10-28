@@ -2,12 +2,8 @@
   "addresses": [
     "59 whitsunday dr kirwan"
   ],
-  "startUrls": [
-    {
-      "url": "https://www.domain.com.au/59-whitsunday-drive-kirwan-qld-4817-2020372212"
-    }
-  ],
-  "maxRequestsPerCrawl": 10,
+  "startUrls": [],
+  "maxRequestsPerCrawl": 20,
   "proxyConfiguration": {
     "useApifyProxy": true,
     "apifyProxyGroups": ["RESIDENTIAL"],

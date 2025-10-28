@@ -22,9 +22,9 @@
     "maxRequestsPerCrawl": {
       "title": "Max Requests Per Crawl",
       "type": "integer",
-      "description": "Maximum number of pages to crawl",
+      "description": "Maximum number of pages to crawl. NOTE: Each address = 2+ requests (search page + property pages). Recommended: addresses × 2 minimum",
       "default": 100,
-      "minimum": 1
+      "minimum": 2
     },
     "proxyConfiguration": {
       "title": "Proxy Configuration",
