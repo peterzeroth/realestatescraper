@@ -1,8 +1,8 @@
 import { Actor } from 'apify';
-import { PlaywrightCrawler, Dataset } from 'crawlee';
+import { PuppeteerCrawler, Dataset } from 'crawlee';
 
 /**
- * Extracts property data from domain.com.au property page using Playwright
+ * Extracts property data from domain.com.au property page using Puppeteer
  */
 async function extractPropertyData(page, url, log) {
     try {
@@ -191,7 +191,7 @@ try {
         await Actor.exit();
     }
 
-    const crawler = new PlaywrightCrawler({
+    const crawler = new PuppeteerCrawler({
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         maxRequestsPerCrawl,
         maxRequestRetries: 3,
@@ -208,8 +208,10 @@ try {
             },
         },
         
-        // Increase navigation timeout to 2 minutes
-        navigationTimeoutSecs: 120,
+        // Configure browser pool
+        browserPoolOptions: {
+            useFingerprints: false,
+        },
         
         useSessionPool: true,
         persistCookiesPerSession: true,
@@ -222,13 +224,9 @@ try {
             if (label === 'SEARCH') {
                 log.info('Loading search page...');
                 
-                // Wait for page to load with longer timeout
-                try {
-                    await page.waitForSelector('a.address', { timeout: 30000 });
-                    log.info('Search page loaded successfully');
-                } catch (e) {
-                    log.warning('Property links not found immediately, trying anyway...');
-                }
+                // Wait for property links to load
+                await page.waitForSelector('a.address', { timeout: 30000 });
+                log.info('Search page loaded successfully');
                 
                 // Extract property links from search results
                 const propertyLinks = await page.evaluate(() => {
@@ -261,12 +259,8 @@ try {
                 log.info('Loading property page...');
                 
                 // Wait for the main property info to load
-                try {
-                    await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 30000 });
-                    log.info('Property page loaded successfully');
-                } catch (e) {
-                    log.warning('Property details not found immediately, trying anyway...');
-                }
+                await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 30000 });
+                log.info('Property page loaded successfully');
                 
                 // Extract property data (including images from viewer)
                 const data = await extractPropertyData(page, request.url, log);
