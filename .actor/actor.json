@@ -20,13 +20,22 @@
           "title": "Listings",
           "transformation": {
             "fields": [
-              "title",
-              "price",
               "address",
+              "suburb",
+              "state",
+              "postcode",
+              "fullAddress",
+              "propertyStatus",
+              "priceText",
+              "price",
+              "propertyType",
               "bedrooms",
               "bathrooms",
-              "squareFeet",
-              "url"
+              "parkingSpaces",
+              "landSize",
+              "buildingSize",
+              "url",
+              "scrapedAt"
             ]
           }
         }

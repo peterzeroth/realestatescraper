@@ -24,6 +24,11 @@ function extractPropertyData($, url, log) {
             url: url,
             scrapedAt: new Date().toISOString(),
             address: null,
+            suburb: null,
+            state: null,
+            postcode: null,
+            fullAddress: null,
+            propertyStatus: null,
             price: null,
             priceText: null,
             propertyType: null,
@@ -40,17 +45,37 @@ function extractPropertyData($, url, log) {
             images: [],
         };
 
-        // Extract address - try multiple selectors
-        data.address = $('[data-testid="address"]').first().text().trim() ||
-                      $('h1.property-info-address').first().text().trim() ||
-                      $('.property-info__street-address').first().text().trim() ||
-                      $('h1').first().text().trim() ||
-                      null;
+        // Extract property status (e.g., "For sale")
+        data.propertyStatus = $('.property-status__PropertyMarketStatus-sc-1wfl5ce-0 .styles__Content-sc-1cced9e-1').first().text().trim() ||
+                             null;
 
-        // Extract price
-        data.priceText = $('[data-testid="price"]').first().text().trim() ||
-                        $('.property-info__price').first().text().trim() ||
-                        $('.property-price').first().text().trim() ||
+        // Extract street address from h1
+        const streetAddress = $('h1.address-attributes__AddressTitle-sc-labpnz-2').first().text().trim() ||
+                             $('h1').first().text().trim();
+        data.address = streetAddress;
+
+        // Extract suburb/state/postcode (they're in a separate p tag)
+        const locationText = $('.address-attributes__AddressAttributesContainer-sc-labpnz-0 p').first().text().trim();
+        if (locationText) {
+            // Parse "Kirwan, QLD 4817" format
+            const locationParts = locationText.split(',').map(p => p.trim());
+            if (locationParts.length >= 2) {
+                data.suburb = locationParts[0];
+                // Parse "QLD 4817" part
+                const statePostcode = locationParts[1].split(' ').filter(p => p);
+                if (statePostcode.length >= 2) {
+                    data.state = statePostcode[0];
+                    data.postcode = statePostcode[1];
+                }
+            }
+        }
+
+        // Build full address
+        data.fullAddress = [data.address, data.suburb, data.state, data.postcode].filter(Boolean).join(', ');
+
+        // Extract price using data-testid
+        data.priceText = $('[data-testid="displayPrice"]').first().text().trim() ||
+                        $('.promote-price__DisplayPrice-sc-1c9e926-3').first().text().trim() ||
                         null;
         
         // Try to extract numeric price
@@ -61,23 +86,48 @@ function extractPropertyData($, url, log) {
             }
         }
 
-        // Extract property features (bedrooms, bathrooms, parking)
-        const featureElements = $('[data-testid="property-features"] span, .property-info__features span, .property-features span, .property-features__feature');
-        featureElements.each((i, el) => {
-            const feature = $(el).text().trim();
-            const bedMatch = feature.match(/(\d+)\s*(bed|bedroom)/i);
-            const bathMatch = feature.match(/(\d+)\s*(bath|bathroom)/i);
-            const parkMatch = feature.match(/(\d+)\s*(car|parking|garage)/i);
-            
-            if (bedMatch) data.bedrooms = parseInt(bedMatch[1], 10);
-            if (bathMatch) data.bathrooms = parseInt(bathMatch[1], 10);
-            if (parkMatch) data.parkingSpaces = parseInt(parkMatch[1], 10);
-        });
+        // Extract property features using the sprite icons
+        // Bedrooms - look for bed-sprite
+        const bedroomsEl = $('[data-testid="bed-sprite"]').closest('.address-attributes__PropertyDetail-sc-labpnz-3').find('p').first();
+        if (bedroomsEl.length) {
+            const beds = parseInt(bedroomsEl.text().trim(), 10);
+            if (!isNaN(beds)) data.bedrooms = beds;
+        }
 
-        // Extract property type
-        data.propertyType = $('[data-testid="property-type"]').first().text().trim() ||
-                           $('.property-info__property-type').first().text().trim() ||
-                           null;
+        // Bathrooms - look for bath-sprite
+        const bathroomsEl = $('[data-testid="bath-sprite"]').closest('.address-attributes__PropertyDetail-sc-labpnz-3').find('p').first();
+        if (bathroomsEl.length) {
+            const baths = parseInt(bathroomsEl.text().trim(), 10);
+            if (!isNaN(baths)) data.bathrooms = baths;
+        }
+
+        // Parking - look for car-sprite
+        const parkingEl = $('[data-testid="car-sprite"]').closest('.address-attributes__PropertyDetail-sc-labpnz-3').find('p').first();
+        if (parkingEl.length) {
+            const parking = parseInt(parkingEl.text().trim(), 10);
+            if (!isNaN(parking)) data.parkingSpaces = parking;
+        }
+
+        // Property type - it's the text after the delimiter "|"
+        const propertyTypeContainer = $('.address-attributes__AttributesContainer-sc-labpnz-1');
+        propertyTypeContainer.find('.address-attributes__PropertyDetail-sc-labpnz-3').each((i, el) => {
+            const text = $(el).text().trim();
+            // Look for the element that has "|" and get the next text
+            if (text.includes('|')) {
+                const parts = text.split('|').map(p => p.trim());
+                if (parts.length > 1 && parts[1]) {
+                    data.propertyType = parts[1];
+                }
+            }
+        });
+        
+        // If not found, try alternative selector
+        if (!data.propertyType) {
+            const typeText = $('.address-attributes__PropertyDetail-sc-labpnz-3:has(.address-attributes__Delim-sc-labpnz-5)').find('p').last().text().trim();
+            if (typeText && typeText !== '|') {
+                data.propertyType = typeText;
+            }
+        }
 
         // Extract land and building size from page text
         const bodyText = $('body').text();
