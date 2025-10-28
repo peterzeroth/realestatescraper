@@ -1,7 +1,10 @@
 {
+  "addresses": [
+    "59 whitsunday dr kirwan qld 4817"
+  ],
   "startUrls": [
     {
-      "url": "https://example.com/listings"
+      "url": "https://www.realestate.com.au/property/59-whitsunday-dr-kirwan-qld-4817/?source=property-search-hp"
     }
   ],
   "maxRequestsPerCrawl": 10,

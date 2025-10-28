@@ -3,15 +3,20 @@
   "type": "object",
   "schemaVersion": 1,
   "properties": {
-    "startUrls": {
-      "title": "Start URLs",
+    "addresses": {
+      "title": "Property Addresses",
       "type": "array",
-      "description": "List of URLs to start scraping from",
+      "description": "List of property addresses to scrape (e.g., '59 whitsunday dr kirwan qld 4817')",
       "prefill": [
-        {
-          "url": "https://example.com/listings"
-        }
+        "59 whitsunday dr kirwan qld 4817"
       ],
+      "editor": "stringList"
+    },
+    "startUrls": {
+      "title": "Direct URLs (Optional)",
+      "type": "array",
+      "description": "List of direct property URLs to scrape (optional, use if you already have URLs)",
+      "prefill": [],
       "editor": "requestListSources"
     },
     "maxRequestsPerCrawl": {
@@ -31,6 +36,6 @@
       "editor": "proxy"
     }
   },
-  "required": ["startUrls"]
+  "required": []
 }
 
