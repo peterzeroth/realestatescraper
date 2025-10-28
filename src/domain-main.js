@@ -1,12 +1,14 @@
 import { Actor } from 'apify';
-import { CheerioCrawler, Dataset } from 'crawlee';
+import { PlaywrightCrawler, Dataset } from 'crawlee';
 
 /**
- * Extracts property data from domain.com.au property page
+ * Extracts property data from domain.com.au property page using Playwright
  */
-function extractPropertyData($, url, log) {
+async function extractPropertyData(page, url, log) {
     try {
-        const data = {
+        // Extract data using page.evaluate to run in browser context
+        const data = await page.evaluate(() => {
+            const result = {
             url: url,
             scrapedAt: new Date().toISOString(),
             address: null,
@@ -23,131 +25,116 @@ function extractPropertyData($, url, log) {
             landSize: null,
             buildingSize: null,
             listingId: null,
-            images: [],
-            imageCount: 0,
-        };
+                images: [],
+                imageCount: 0,
+            };
 
-        // Extract price
-        data.priceText = $('[data-testid="listing-details__summary-title"] span').first().text().trim() ||
-                        $('.css-twgrok span').first().text().trim() ||
-                        null;
-        
-        if (data.priceText) {
-            const priceMatch = data.priceText.match(/\$([0-9,]+)/);
-            if (priceMatch) {
-                data.price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-            }
-        }
-
-        // Extract full address from h1
-        const addressH1 = $('[data-testid="listing-details__button-copy-wrapper"] h1').first().text().trim() ||
-                         $('.css-hkh81z').first().text().trim();
-        
-        if (addressH1) {
-            data.fullAddress = addressH1;
-            // Parse address: "59 Whitsunday Drive, Kirwan QLD 4817"
-            const parts = addressH1.split(',').map(p => p.trim());
-            if (parts.length >= 2) {
-                data.address = parts[0]; // "59 Whitsunday Drive"
-                // Parse "Kirwan QLD 4817"
-                const locationParts = parts[1].split(' ').filter(p => p);
-                if (locationParts.length >= 3) {
-                    data.suburb = locationParts[0]; // "Kirwan"
-                    data.state = locationParts[1]; // "QLD"
-                    data.postcode = locationParts[2]; // "4817"
+            // Extract price
+            const priceEl = document.querySelector('[data-testid="listing-details__summary-title"] span');
+            result.priceText = priceEl ? priceEl.textContent.trim() : null;
+            
+            if (result.priceText) {
+                const priceMatch = result.priceText.match(/\$([0-9,]+)/);
+                if (priceMatch) {
+                    result.price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
                 }
             }
-        }
 
-        // Extract features using data-testid
-        const features = $('[data-testid="property-features-wrapper"]');
-        
-        // Bedrooms - look for text before "Beds"
-        const bedsText = features.find('span:contains("Beds")').closest('[data-testid="property-features-feature"]').find('[data-testid="property-features-text-container"]').first().text().trim();
-        if (bedsText) {
-            const bedsMatch = bedsText.match(/(\d+)/);
-            if (bedsMatch) data.bedrooms = parseInt(bedsMatch[1], 10);
-        }
-
-        // Bathrooms - look for text before "Baths"
-        const bathsText = features.find('span:contains("Baths")').closest('[data-testid="property-features-feature"]').find('[data-testid="property-features-text-container"]').first().text().trim();
-        if (bathsText) {
-            const bathsMatch = bathsText.match(/(\d+)/);
-            if (bathsMatch) data.bathrooms = parseInt(bathsMatch[1], 10);
-        }
-
-        // Parking - look for text before "Parking"
-        const parkingText = features.find('span:contains("Parking")').closest('[data-testid="property-features-feature"]').find('[data-testid="property-features-text-container"]').first().text().trim();
-        if (parkingText) {
-            const parkingMatch = parkingText.match(/(\d+)/);
-            if (parkingMatch) data.parkingSpaces = parseInt(parkingMatch[1], 10);
-        }
-
-        // Land size - look for text with m²
-        features.find('[data-testid="property-features-text-container"]').each((i, el) => {
-            const text = $(el).text().trim();
-            if (text.includes('m²')) {
-                const sizeMatch = text.match(/(\d+)m²/);
-                if (sizeMatch) {
-                    data.landSize = parseInt(sizeMatch[1], 10);
+            // Extract full address from h1
+            const addressH1El = document.querySelector('[data-testid="listing-details__button-copy-wrapper"] h1');
+            const addressH1 = addressH1El ? addressH1El.textContent.trim() : null;
+            
+            if (addressH1) {
+                result.fullAddress = addressH1;
+                const parts = addressH1.split(',').map(p => p.trim());
+                if (parts.length >= 2) {
+                    result.address = parts[0];
+                    const locationParts = parts[1].split(' ').filter(p => p);
+                    if (locationParts.length >= 3) {
+                        result.suburb = locationParts[0];
+                        result.state = locationParts[1];
+                        result.postcode = locationParts[2];
+                    }
                 }
             }
+
+            // Extract features
+            const featureEls = document.querySelectorAll('[data-testid="property-features-feature"]');
+            featureEls.forEach(el => {
+                const text = el.textContent.trim();
+                const bedMatch = text.match(/(\d+)\s*Bed/i);
+                const bathMatch = text.match(/(\d+)\s*Bath/i);
+                const parkMatch = text.match(/(\d+)\s*Parking/i);
+                const landMatch = text.match(/(\d+)m²/);
+                
+                if (bedMatch) result.bedrooms = parseInt(bedMatch[1], 10);
+                if (bathMatch) result.bathrooms = parseInt(bathMatch[1], 10);
+                if (parkMatch) result.parkingSpaces = parseInt(parkMatch[1], 10);
+                if (landMatch) result.landSize = parseInt(landMatch[1], 10);
+            });
+
+            // Property type
+            const typeEl = document.querySelector('[data-testid="listing-summary-property-type"] span');
+            result.propertyType = typeEl ? typeEl.textContent.trim() : null;
+
+            return result;
         });
 
-        // Property type
-        data.propertyType = $('[data-testid="listing-summary-property-type"] span').first().text().trim() ||
-                           $('.css-1efi8gv').first().text().trim() ||
-                           null;
-
-        // Extract listing ID from URL
+        // Add URL and listing ID
+        data.url = url;
+        data.scrapedAt = new Date().toISOString();
         const idMatch = url.match(/-(\d+)$/);
         if (idMatch) {
             data.listingId = idMatch[1];
         }
 
-        // Extract property images that are visible on the page
-        const imageUrls = new Set();
-
-        // Look for all images on the page
-        $('img').each((i, el) => {
-            const src = $(el).attr('src') || $(el).attr('data-src');
-            
-            if (src && src.startsWith('http')) {
-                // Only include property images from bucket-api (domain's image hosting)
-                if (src.includes('bucket-api.domain.com.au') || 
-                    (src.includes('domain.com.au') && (src.includes('/image/') || src.includes('/bucket/')))) {
+        // Now extract images by clicking the Photos button
+        log.info('Attempting to open photo viewer...');
+        
+        try {
+            // Click the Launch Photos button
+            const photosButton = await page.$('button[aria-label="Launch Photos"]');
+            if (photosButton) {
+                await photosButton.click();
+                log.info('Clicked Launch Photos button');
+                
+                // Wait for image viewer to appear
+                await page.waitForSelector('.css-dk278u', { timeout: 5000 });
+                await page.waitForTimeout(1000); // Give images time to load
+                
+                // Extract all images from the viewer
+                data.images = await page.evaluate(() => {
+                    const imageUrls = [];
+                    const imgElements = document.querySelectorAll('.css-dk278u img[src*="domainstatic.com.au"]');
                     
-                    // Skip small thumbnails, icons, logos
-                    if (!src.includes('40x40') && 
-                        !src.includes('50x50') && 
-                        !src.includes('60x60') &&
-                        !src.includes('logo') && 
-                        !src.includes('icon') &&
-                        !src.includes('avatar')) {
-                        
-                        // Try to get largest version
-                        let finalUrl = src;
-                        
-                        // If it has size in URL, upgrade to high-res
-                        if (src.match(/\/\d+x\d+\//)) {
-                            finalUrl = src.replace(/\/\d+x\d+\//, '/2000x1500/');
+                    imgElements.forEach(img => {
+                        let src = img.src;
+                        if (src && !src.includes('data:image')) {
+                            // Remove thumbnail size and filters to get high-res
+                            // Example: /fit-in/144x106/filters:format(webp):quality(85):no_upscale()/ -> remove it
+                            src = src.replace(/\/fit-in\/\d+x\d+\/filters:[^/]+\//, '/');
+                            
+                            // Extract the original filename which contains dimensions
+                            // The URL ends with something like: 2020372212_7_1_251025_104419-w3000-h2000
+                            imageUrls.push(src);
                         }
-                        
-                        imageUrls.add(finalUrl);
-                        
-                        // Also log the first few for debugging
-                        if (imageUrls.size <= 3) {
-                            log.info(`Sample image URL: ${finalUrl.substring(0, 80)}...`);
-                        }
-                    }
-                }
+                    });
+                    
+                    return imageUrls;
+                });
+                
+                data.imageCount = data.images.length;
+                log.info(`Found ${data.imageCount} images in photo viewer`);
+            } else {
+                log.warning('Photos button not found');
+                data.images = [];
+                data.imageCount = 0;
             }
-        });
-
-        data.images = Array.from(imageUrls);
-        data.imageCount = data.images.length;
-
-        log.info(`Found ${data.imageCount} property images on the page`);
+        } catch (error) {
+            log.warning(`Could not open photo viewer: ${error.message}`);
+            data.images = [];
+            data.imageCount = 0;
+        }
 
         return data;
     } catch (error) {
@@ -212,7 +199,7 @@ try {
         await Actor.exit();
     }
 
-    const crawler = new CheerioCrawler({
+    const crawler = new PlaywrightCrawler({
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         maxRequestsPerCrawl,
         maxRequestRetries: 3,
@@ -231,32 +218,25 @@ try {
             },
         ],
 
-        async requestHandler({ request, $, log, crawler }) {
+        async requestHandler({ request, page, log, crawler }) {
             const { label } = request.userData;
             
             log.info(`Processing ${label}: ${request.url}`);
 
             if (label === 'SEARCH') {
-                // Extract property links from search results
-                const propertyLinks = [];
+                // Wait for page to load
+                await page.waitForLoadState('domcontentloaded');
                 
-                // Find all property listing links
-                $('a.address[href*="/sale/"]').each((i, el) => {
-                    const href = $(el).attr('href');
-                    if (href && href.startsWith('https://www.domain.com.au/')) {
-                        propertyLinks.push(href);
-                    }
-                });
-
-                // Also try alternative selector
-                $('a[href*="domain.com.au"][href*="-qld-"]').each((i, el) => {
-                    const href = $(el).attr('href');
-                    if (href && href.includes('domain.com.au') && !propertyLinks.includes(href)) {
-                        if (!href.includes('/sale/') && href.match(/-\d+$/)) {
-                            const fullUrl = href.startsWith('http') ? href : `https://www.domain.com.au${href}`;
-                            propertyLinks.push(fullUrl);
+                // Extract property links from search results
+                const propertyLinks = await page.evaluate(() => {
+                    const links = [];
+                    document.querySelectorAll('a.address').forEach(a => {
+                        const href = a.href;
+                        if (href && href.includes('domain.com.au') && href.match(/-\d+$/)) {
+                            links.push(href);
                         }
-                    }
+                    });
+                    return links;
                 });
 
                 log.info(`Found ${propertyLinks.length} property links on search page`);
@@ -275,8 +255,12 @@ try {
                 }
 
             } else if (label === 'PROPERTY') {
+                // Wait for page to load
+                await page.waitForLoadState('domcontentloaded');
+                await page.waitForTimeout(2000); // Let page fully render
+                
                 // Extract property data
-                const data = extractPropertyData($, request.url, log);
+                const data = await extractPropertyData(page, request.url, log);
                 
                 log.info(`Extracted: ${data.fullAddress || 'Unknown address'}`);
                 log.info(`Price: ${data.priceText}, Beds: ${data.bedrooms}, Baths: ${data.bathrooms}, Parking: ${data.parkingSpaces}`);

@@ -19,7 +19,8 @@
   "dependencies": {
     "apify": "^3.0.0",
     "crawlee": "^3.0.0",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "playwright": "^1.40.0"
   },
   "devDependencies": {
     "eslint": "^8.0.0"
