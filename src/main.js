@@ -218,17 +218,79 @@ try {
         // Maximum number of requests
         maxRequestsPerCrawl,
 
+        // Use headless mode with stealth
+        headless: true,
+        
+        // Browser launch options for better stealth
+        launchContext: {
+            launcher: 'playwright',
+            launchOptions: {
+                headless: true,
+                args: [
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--disable-web-security',
+                ],
+            },
+        },
+
+        // Add random delays between requests to avoid rate limiting
+        maxRequestRetries: 5,
+        requestHandlerTimeoutSecs: 120,
+        
+        // Pre-navigation hook to set headers and user agent
+        preNavigationHooks: [
+            async ({ page, request }, gotoOptions) => {
+                // Set a realistic user agent
+                await page.setExtraHTTPHeaders({
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-AU,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Cache-Control': 'max-age=0',
+                });
+
+                // Remove automation indicators
+                await page.evaluateOnNewDocument(() => {
+                    // Overwrite the `navigator.webdriver` property
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => false,
+                    });
+                    
+                    // Overwrite the `plugins` property
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5],
+                    });
+                    
+                    // Overwrite the `languages` property
+                    Object.defineProperty(navigator, 'languages', {
+                        get: () => ['en-AU', 'en'],
+                    });
+                });
+
+                // Set a longer timeout for navigation
+                gotoOptions.timeout = 60000;
+                gotoOptions.waitUntil = 'networkidle';
+            },
+        ],
+
         // Request handler - this is where we extract data
         async requestHandler({ request, page, log }) {
             const { label } = request.userData;
             
             log.info(`Processing ${label}: ${request.url}`);
 
-            // Wait for the page to load
-            await page.waitForLoadState('domcontentloaded');
+            // Wait for the page to load completely
+            await page.waitForLoadState('networkidle', { timeout: 60000 });
             
-            // Give page extra time to render
-            await page.waitForTimeout(2000);
+            // Random delay to appear more human-like
+            const randomDelay = Math.floor(Math.random() * 3000) + 2000; // 2-5 seconds
+            await page.waitForTimeout(randomDelay);
 
             if (label === 'PROPERTY') {
                 // Extract property data
