@@ -6,6 +6,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "node src/main.js",
+    "start:browser": "node src/browser-main.js",
+    "start:http": "node src/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
