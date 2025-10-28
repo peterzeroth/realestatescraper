@@ -1,9 +1,10 @@
 {
   "actorSpecification": 1,
-  "name": "real-estate-scraper",
+  "name": "tangerine_incubator/realestatescraper",
   "title": "Real Estate Listing Scraper",
   "description": "Scrapes real estate listings from various websites",
   "version": "1.0.0",
+  "buildTag": "latest",
   "meta": {
     "templateId": "js-start"
   },
