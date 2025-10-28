@@ -149,6 +149,13 @@ try {
     // Build request list from addresses and URLs
     const requests = [];
     
+    // First, add homepage request to warm up the session
+    requests.push({
+        url: 'https://www.realestate.com.au/',
+        userData: { label: 'HOMEPAGE' }
+    });
+    console.log('Added homepage for session warming');
+    
     // Add addresses as search URLs
     if (addresses && addresses.length > 0) {
         for (const address of addresses) {
@@ -158,7 +165,10 @@ try {
             const searchUrl = `https://www.realestate.com.au/property/${formattedAddress}`;
             requests.push({
                 url: searchUrl,
-                userData: { label: 'PROPERTY', originalAddress: address }
+                userData: { label: 'PROPERTY', originalAddress: address },
+                headers: {
+                    'Referer': 'https://www.realestate.com.au/',
+                }
             });
             console.log(`Added address: ${address} -> ${searchUrl}`);
         }
@@ -169,43 +179,79 @@ try {
         for (const urlObj of startUrls) {
             requests.push({
                 url: urlObj.url,
-                userData: { label: 'PROPERTY' }
+                userData: { label: 'PROPERTY' },
+                headers: {
+                    'Referer': 'https://www.realestate.com.au/',
+                }
             });
             console.log(`Added URL: ${urlObj.url}`);
         }
     }
 
-    if (requests.length === 0) {
+    if (requests.length === 1) {
+        // Only homepage, no properties to scrape
         console.log('No addresses or URLs provided. Please provide at least one address or URL.');
         await Actor.exit();
     }
+
+    // Adjust maxRequestsPerCrawl to account for homepage warming request
+    const adjustedMaxRequests = maxRequestsPerCrawl + 1;
 
     // Initialize the crawler with CheerioCrawler (uses got-scraping for anti-bot detection)
     const crawler = new CheerioCrawler({
         // Proxy configuration
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         
-        // Maximum number of requests
-        maxRequestsPerCrawl,
+        // Maximum number of requests (adjusted for homepage warming)
+        maxRequestsPerCrawl: adjustedMaxRequests,
 
-        // Retry configuration
-        maxRequestRetries: 5,
-        requestHandlerTimeoutSecs: 60,
+        // Retry configuration with delays
+        maxRequestRetries: 3,
+        requestHandlerTimeoutSecs: 90,
+        maxConcurrency: 1, // Process one request at a time
+        minConcurrency: 1,
         
         // Use got-scraping with realistic headers (built into CheerioCrawler)
         useSessionPool: true,
         persistCookiesPerSession: true,
+        sessionPoolOptions: {
+            maxPoolSize: 1, // Use single session for consistency
+            sessionOptions: {
+                maxUsageCount: 50,
+            },
+        },
         
         // Additional request options for better stealth
         additionalMimeTypes: ['application/json', 'text/plain'],
+        
+        // Custom request options
+        preNavigationHooks: [
+            async ({ request, session, crawler }, gotoOptions) => {
+                // Add delays between requests
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 5000 + 3000)); // 3-8 seconds
+            },
+        ],
 
         // Request handler - this is where we extract data
-        async requestHandler({ request, $, body, log }) {
+        async requestHandler({ request, $, body, log, session, crawler }) {
             const { label } = request.userData;
             
             log.info(`Processing ${label}: ${request.url}`);
 
-            if (label === 'PROPERTY') {
+            // Check if we got blocked
+            const pageText = $('body').text();
+            if (pageText.includes('Access Denied') || pageText.includes('blocked') || $('title').text().includes('403')) {
+                log.warning('Possible blocking detected, marking session as bad');
+                session.retire();
+                throw new Error('Blocked by anti-bot protection');
+            }
+
+            if (label === 'HOMEPAGE') {
+                // Just warming up the session, log and continue
+                log.info('Successfully visited homepage, session warmed up');
+                // Mark session as working
+                session.markGood();
+            } else if (label === 'PROPERTY') {
                 // Extract property data using Cheerio
                 const data = extractPropertyData($, request.url, log);
                 
