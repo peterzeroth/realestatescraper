@@ -208,6 +208,9 @@ try {
             },
         },
         
+        // Increase navigation timeout to 2 minutes
+        navigationTimeoutSecs: 120,
+        
         useSessionPool: true,
         persistCookiesPerSession: true,
 
@@ -217,8 +220,15 @@ try {
             log.info(`Processing ${label}: ${request.url}`);
 
             if (label === 'SEARCH') {
-                // Wait for page to load
-                await page.waitForLoadState('domcontentloaded');
+                log.info('Loading search page...');
+                
+                // Wait for page to load with longer timeout
+                try {
+                    await page.waitForSelector('a.address', { timeout: 30000 });
+                    log.info('Search page loaded successfully');
+                } catch (e) {
+                    log.warning('Property links not found immediately, trying anyway...');
+                }
                 
                 // Extract property links from search results
                 const propertyLinks = await page.evaluate(() => {
@@ -248,9 +258,15 @@ try {
                 }
 
             } else if (label === 'PROPERTY') {
-                // Wait for page to load
-                await page.waitForLoadState('domcontentloaded');
-                await page.waitForTimeout(2000);
+                log.info('Loading property page...');
+                
+                // Wait for the main property info to load
+                try {
+                    await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 30000 });
+                    log.info('Property page loaded successfully');
+                } catch (e) {
+                    log.warning('Property details not found immediately, trying anyway...');
+                }
                 
                 // Extract property data (including images from viewer)
                 const data = await extractPropertyData(page, request.url, log);
