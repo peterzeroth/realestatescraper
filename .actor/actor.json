@@ -1,8 +1,8 @@
 {
   "actorSpecification": 1,
-  "name": "tangerine_incubator/realestatescraper",
-  "title": "Real Estate Listing Scraper",
-  "description": "Scrapes real estate listings from various websites",
+  "name": "tangerine_incubator/forsalerealesstatescraper",
+  "title": "ForSale Real Estate Scraper",
+  "description": "Scrapes for-sale real estate listings from domain.com.au",
   "version": "1.0.0",
   "buildTag": "latest",
   "meta": {

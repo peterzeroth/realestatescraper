@@ -1,7 +1,7 @@
 {
-  "name": "real-estate-scraper",
+  "name": "forsale-real-estate-scraper",
   "version": "1.0.0",
-  "description": "Apify actor for scraping real estate listings",
+  "description": "Apify actor for scraping for-sale real estate listings from domain.com.au",
   "type": "module",
   "main": "src/domain-main.js",
   "scripts": {

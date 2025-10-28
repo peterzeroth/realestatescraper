@@ -1,6 +1,6 @@
-# Real Estate Listing Scraper
+# ForSale Real Estate Scraper
 
-An Apify actor for scraping real estate listings from **domain.com.au**.
+An Apify actor for scraping for-sale real estate listings from **domain.com.au**.
 
 ## Features
 
