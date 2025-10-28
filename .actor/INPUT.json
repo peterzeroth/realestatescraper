@@ -5,7 +5,9 @@
   "startUrls": [],
   "maxRequestsPerCrawl": 20,
   "proxyConfiguration": {
-    "useApifyProxy": false
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "AU"
   }
 }
 
