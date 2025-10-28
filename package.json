@@ -5,9 +5,10 @@
   "type": "module",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js",
+    "start": "node src/domain-main.js",
+    "start:domain": "node src/domain-main.js",
+    "start:realestate": "node src/main.js",
     "start:browser": "node src/browser-main.js",
-    "start:http": "node src/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

@@ -1,15 +1,17 @@
 {
   "addresses": [
-    "59 whitsunday dr kirwan qld 4817"
+    "59 whitsunday dr kirwan"
   ],
   "startUrls": [
     {
-      "url": "https://www.realestate.com.au/property/59-whitsunday-dr-kirwan-qld-4817/?source=property-search-hp"
+      "url": "https://www.domain.com.au/59-whitsunday-drive-kirwan-qld-4817-2020372212"
     }
   ],
   "maxRequestsPerCrawl": 10,
   "proxyConfiguration": {
-    "useApifyProxy": false
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "AU"
   }
 }
 

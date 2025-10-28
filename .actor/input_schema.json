@@ -3,23 +3,21 @@
   "type": "object",
   "schemaVersion": 1,
   "properties": {
-    "startUrls": {
-      "title": "Property URLs (REQUIRED)",
-      "type": "array",
-      "description": "List of direct property URLs to scrape. IMPORTANT: Use full URLs, not addresses.",
-      "prefill": [
-        {
-          "url": "https://www.realestate.com.au/property/59-whitsunday-dr-kirwan-qld-4817/"
-        }
-      ],
-      "editor": "requestListSources"
-    },
     "addresses": {
-      "title": "Property Addresses (NOT RECOMMENDED)",
+      "title": "Property Addresses",
       "type": "array",
-      "description": "WARNING: Address-to-URL conversion may not work. Use startUrls instead.",
-      "prefill": [],
+      "description": "Property addresses to search on domain.com.au (e.g., '59 whitsunday dr kirwan')",
+      "prefill": [
+        "59 whitsunday dr kirwan"
+      ],
       "editor": "stringList"
+    },
+    "startUrls": {
+      "title": "Direct Property URLs (Optional)",
+      "type": "array",
+      "description": "Direct domain.com.au property URLs (optional, will skip search if provided)",
+      "prefill": [],
+      "editor": "requestListSources"
     },
     "maxRequestsPerCrawl": {
       "title": "Max Requests Per Crawl",
