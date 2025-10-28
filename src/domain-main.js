@@ -238,20 +238,22 @@ try {
             if (label === 'SEARCH') {
                 log.info('Loading search page...');
                 
-                // Wait for property links to load (longer timeout for slow proxies)
-                await page.waitForSelector('a.address', { timeout: 60000 });
+                // Wait for property cards to load
+                await page.waitForSelector('[data-testid="listing-card-lazy-image"]', { timeout: 60000 });
                 log.info('Search page loaded successfully');
                 
                 // Extract property links from search results
                 const propertyLinks = await page.evaluate(() => {
                     const links = [];
-                    document.querySelectorAll('a.address').forEach(a => {
+                    // Find all links that match property listing pattern: domain.com.au/address-suburb-state-postcode-listingid
+                    document.querySelectorAll('a[href*="domain.com.au"]').forEach(a => {
                         const href = a.href;
-                        if (href && href.includes('domain.com.au') && href.match(/-\d+$/)) {
+                        // Match pattern: ends with -[7+ digit number]
+                        if (href && href.match(/domain\.com\.au\/[^/]+-\d{7,}$/)) {
                             links.push(href);
                         }
                     });
-                    return links;
+                    return [...new Set(links)]; // Remove duplicates
                 });
 
                 log.info(`Found ${propertyLinks.length} property links on search page`);
