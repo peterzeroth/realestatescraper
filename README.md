@@ -1,37 +1,40 @@
 # Real Estate Listing Scraper
 
-An Apify actor for scraping real estate listings from **realestate.com.au**.
+An Apify actor for scraping real estate listings from **domain.com.au**.
 
 ## Features
 
-- 🏠 Scrapes real estate listings by property address
-- 📍 Accepts addresses as input (e.g., "59 whitsunday dr kirwan qld 4817")
+- 🏠 Scrapes real estate listings from domain.com.au
+- 🔍 Two-stage scraping: searches by address, then extracts property details
+- 📍 Accepts addresses as input (e.g., "59 whitsunday dr kirwan")
 - 🔗 Also accepts direct property URLs
-- 💰 Extracts price, bedrooms, bathrooms, parking, land size, and more
-- 🌐 Proxy support for reliable scraping
+- 💰 Extracts price, bedrooms, bathrooms, parking, land size, property type, and more
+- 🌐 Australian proxy support for reliable scraping
 - 📊 Exports data in multiple formats (JSON, CSV, Excel)
 
 ## Input
 
 The actor accepts the following input parameters:
 
-- **addresses** (optional) - Array of property addresses to scrape
-- **startUrls** (optional) - Array of direct property URLs to scrape
+- **addresses** - Array of property addresses to search for (e.g., "59 whitsunday dr kirwan")
+- **startUrls** (optional) - Array of direct domain.com.au property URLs to scrape
 - **maxRequestsPerCrawl** (optional) - Maximum number of pages to crawl (default: 100)
-- **proxyConfiguration** (optional) - Proxy settings for the crawler
+- **proxyConfiguration** (optional) - Proxy settings (Australian proxies recommended)
 
 ### Example Input
 
-#### Using Addresses:
+#### Using Addresses (Recommended):
 ```json
 {
   "addresses": [
-    "59 whitsunday dr kirwan qld 4817",
-    "123 main st sydney nsw 2000"
+    "59 whitsunday dr kirwan",
+    "123 main st sydney"
   ],
   "maxRequestsPerCrawl": 100,
   "proxyConfiguration": {
-    "useApifyProxy": true
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "AU"
   }
 }
 ```
@@ -41,12 +44,14 @@ The actor accepts the following input parameters:
 {
   "startUrls": [
     {
-      "url": "https://www.realestate.com.au/property/59-whitsunday-dr-kirwan-qld-4817/?source=property-search-hp"
+      "url": "https://www.domain.com.au/59-whitsunday-drive-kirwan-qld-4817-2020372212"
     }
   ],
   "maxRequestsPerCrawl": 100,
   "proxyConfiguration": {
-    "useApifyProxy": true
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "AU"
   }
 }
 ```

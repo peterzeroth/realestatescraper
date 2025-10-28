@@ -3,12 +3,9 @@
   "version": "1.0.0",
   "description": "Apify actor for scraping real estate listings",
   "type": "module",
-  "main": "src/main.js",
+  "main": "src/domain-main.js",
   "scripts": {
     "start": "node src/domain-main.js",
-    "start:domain": "node src/domain-main.js",
-    "start:realestate": "node src/main.js",
-    "start:browser": "node src/browser-main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
