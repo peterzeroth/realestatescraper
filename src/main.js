@@ -1,5 +1,5 @@
 import { Actor } from 'apify';
-import { PlaywrightCrawler, Dataset } from 'apify';
+import { PlaywrightCrawler, Dataset } from 'crawlee';
 
 /**
  * Converts an address string to a realestate.com.au search URL format

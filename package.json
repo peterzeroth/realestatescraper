@@ -2,6 +2,7 @@
   "name": "real-estate-scraper",
   "version": "1.0.0",
   "description": "Apify actor for scraping real estate listings",
+  "type": "module",
   "main": "src/main.js",
   "scripts": {
     "start": "node src/main.js",
@@ -17,6 +18,7 @@
   "license": "ISC",
   "dependencies": {
     "apify": "^3.0.0",
+    "crawlee": "^3.0.0",
     "cheerio": "^1.0.0-rc.12",
     "playwright": "^1.40.0"
   },
