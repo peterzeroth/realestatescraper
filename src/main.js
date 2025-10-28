@@ -1,5 +1,5 @@
 import { Actor } from 'apify';
-import { PlaywrightCrawler, Dataset } from 'crawlee';
+import { CheerioCrawler, Dataset } from 'crawlee';
 
 /**
  * Converts an address string to a realestate.com.au search URL format
@@ -15,13 +15,10 @@ function formatAddressForUrl(address) {
 }
 
 /**
- * Extracts property data from a realestate.com.au property page
+ * Extracts property data from a realestate.com.au property page using Cheerio
  */
-async function extractPropertyData(page, url, log) {
+function extractPropertyData($, url, log) {
     try {
-        // Wait for main content to load
-        await page.waitForSelector('body', { timeout: 10000 });
-        
         // Extract property details
         const data = {
             url: url,
@@ -43,111 +40,84 @@ async function extractPropertyData(page, url, log) {
             images: [],
         };
 
-        // Extract address
-        try {
-            data.address = await page.$eval('[data-testid="address"], h1.property-info-address, .property-info__street-address', 
-                el => el.textContent.trim()).catch(() => null);
-        } catch (e) {
-            log.warning('Could not extract address');
-        }
+        // Extract address - try multiple selectors
+        data.address = $('[data-testid="address"]').first().text().trim() ||
+                      $('h1.property-info-address').first().text().trim() ||
+                      $('.property-info__street-address').first().text().trim() ||
+                      $('h1').first().text().trim() ||
+                      null;
 
         // Extract price
-        try {
-            data.priceText = await page.$eval('[data-testid="price"], .property-info__price, .property-price', 
-                el => el.textContent.trim()).catch(() => null);
-            
-            // Try to extract numeric price
-            if (data.priceText) {
-                const priceMatch = data.priceText.match(/\$([0-9,]+)/);
-                if (priceMatch) {
-                    data.price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-                }
+        data.priceText = $('[data-testid="price"]').first().text().trim() ||
+                        $('.property-info__price').first().text().trim() ||
+                        $('.property-price').first().text().trim() ||
+                        null;
+        
+        // Try to extract numeric price
+        if (data.priceText) {
+            const priceMatch = data.priceText.match(/\$([0-9,]+)/);
+            if (priceMatch) {
+                data.price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
             }
-        } catch (e) {
-            log.warning('Could not extract price');
         }
 
         // Extract property features (bedrooms, bathrooms, parking)
-        try {
-            const features = await page.$$eval('[data-testid="property-features"] span, .property-info__features span, .property-features span', 
-                elements => elements.map(el => el.textContent.trim()));
+        const featureElements = $('[data-testid="property-features"] span, .property-info__features span, .property-features span, .property-features__feature');
+        featureElements.each((i, el) => {
+            const feature = $(el).text().trim();
+            const bedMatch = feature.match(/(\d+)\s*(bed|bedroom)/i);
+            const bathMatch = feature.match(/(\d+)\s*(bath|bathroom)/i);
+            const parkMatch = feature.match(/(\d+)\s*(car|parking|garage)/i);
             
-            features.forEach(feature => {
-                const bedMatch = feature.match(/(\d+)\s*(bed|bedroom)/i);
-                const bathMatch = feature.match(/(\d+)\s*(bath|bathroom)/i);
-                const parkMatch = feature.match(/(\d+)\s*(car|parking|garage)/i);
-                
-                if (bedMatch) data.bedrooms = parseInt(bedMatch[1], 10);
-                if (bathMatch) data.bathrooms = parseInt(bathMatch[1], 10);
-                if (parkMatch) data.parkingSpaces = parseInt(parkMatch[1], 10);
-            });
-        } catch (e) {
-            log.warning('Could not extract property features');
-        }
+            if (bedMatch) data.bedrooms = parseInt(bedMatch[1], 10);
+            if (bathMatch) data.bathrooms = parseInt(bathMatch[1], 10);
+            if (parkMatch) data.parkingSpaces = parseInt(parkMatch[1], 10);
+        });
 
         // Extract property type
-        try {
-            data.propertyType = await page.$eval('[data-testid="property-type"], .property-info__property-type', 
-                el => el.textContent.trim()).catch(() => null);
-        } catch (e) {
-            // Property type not found
-        }
+        data.propertyType = $('[data-testid="property-type"]').first().text().trim() ||
+                           $('.property-info__property-type').first().text().trim() ||
+                           null;
 
-        // Extract land and building size
-        try {
-            const sizeText = await page.evaluate(() => {
-                const bodyText = document.body.innerText;
-                return bodyText;
-            });
-            
-            const landMatch = sizeText.match(/land.*?(\d+)\s*m[²2]/i);
-            const buildMatch = sizeText.match(/building.*?(\d+)\s*m[²2]/i);
-            
-            if (landMatch) data.landSize = parseInt(landMatch[1], 10);
-            if (buildMatch) data.buildingSize = parseInt(buildMatch[1], 10);
-        } catch (e) {
-            log.warning('Could not extract sizes');
-        }
+        // Extract land and building size from page text
+        const bodyText = $('body').text();
+        const landMatch = bodyText.match(/land.*?(\d+)\s*m[²2]/i);
+        const buildMatch = bodyText.match(/building.*?(\d+)\s*m[²2]/i);
+        
+        if (landMatch) data.landSize = parseInt(landMatch[1], 10);
+        if (buildMatch) data.buildingSize = parseInt(buildMatch[1], 10);
 
         // Extract description
-        try {
-            data.description = await page.$eval('[data-testid="description"], .property-description, [itemprop="description"]', 
-                el => el.textContent.trim()).catch(() => null);
-        } catch (e) {
-            // Description not found
-        }
+        data.description = $('[data-testid="description"]').first().text().trim() ||
+                          $('.property-description').first().text().trim() ||
+                          $('[itemprop="description"]').first().text().trim() ||
+                          null;
 
         // Extract features list
-        try {
-            data.features = await page.$$eval('.property-features-list li, .features-list li, [data-testid="features"] li', 
-                elements => elements.map(el => el.textContent.trim())).catch(() => []);
-        } catch (e) {
-            // Features not found
-        }
+        $('.property-features-list li, .features-list li, [data-testid="features"] li').each((i, el) => {
+            const feature = $(el).text().trim();
+            if (feature) {
+                data.features.push(feature);
+            }
+        });
 
         // Extract agent information
-        try {
-            data.agent = await page.$eval('.agent-name, [data-testid="agent-name"]', 
-                el => el.textContent.trim()).catch(() => null);
-            data.agencyName = await page.$eval('.agency-name, [data-testid="agency-name"]', 
-                el => el.textContent.trim()).catch(() => null);
-        } catch (e) {
-            // Agent info not found
-        }
+        data.agent = $('.agent-name, [data-testid="agent-name"]').first().text().trim() || null;
+        data.agencyName = $('.agency-name, [data-testid="agency-name"]').first().text().trim() || null;
 
-        // Extract listing ID from URL or page
-        const idMatch = url.match(/property\/([^\/]+)/);
+        // Extract listing ID from URL
+        const idMatch = url.match(/property\/([^\/\?]+)/);
         if (idMatch) {
             data.listingId = idMatch[1];
         }
 
         // Extract image URLs
-        try {
-            data.images = await page.$$eval('img[data-testid="property-image"], .property-images img, .gallery img', 
-                elements => elements.map(img => img.src).filter(src => src && src.includes('http'))).catch(() => []);
-        } catch (e) {
-            log.warning('Could not extract images');
-        }
+        $('img[data-testid="property-image"], .property-images img, .gallery img').each((i, el) => {
+            const src = $(el).attr('src');
+            if (src && src.includes('http')) {
+                data.images.push(src);
+            }
+        });
 
         return data;
     } catch (error) {
@@ -210,91 +180,34 @@ try {
         await Actor.exit();
     }
 
-    // Initialize the crawler
-    const crawler = new PlaywrightCrawler({
+    // Initialize the crawler with CheerioCrawler (uses got-scraping for anti-bot detection)
+    const crawler = new CheerioCrawler({
         // Proxy configuration
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         
         // Maximum number of requests
         maxRequestsPerCrawl,
 
-        // Use headless mode with stealth
-        headless: true,
-        
-        // Browser launch options for better stealth
-        launchContext: {
-            launcher: 'playwright',
-            launchOptions: {
-                headless: true,
-                args: [
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-features=IsolateOrigins,site-per-process',
-                    '--disable-web-security',
-                ],
-            },
-        },
-
-        // Add random delays between requests to avoid rate limiting
+        // Retry configuration
         maxRequestRetries: 5,
-        requestHandlerTimeoutSecs: 120,
+        requestHandlerTimeoutSecs: 60,
         
-        // Pre-navigation hook to set headers and user agent
-        preNavigationHooks: [
-            async ({ page, request }, gotoOptions) => {
-                // Set a realistic user agent
-                await page.setExtraHTTPHeaders({
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-AU,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'DNT': '1',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1',
-                    'Sec-Fetch-Dest': 'document',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'none',
-                    'Cache-Control': 'max-age=0',
-                });
-
-                // Remove automation indicators
-                await page.evaluateOnNewDocument(() => {
-                    // Overwrite the `navigator.webdriver` property
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => false,
-                    });
-                    
-                    // Overwrite the `plugins` property
-                    Object.defineProperty(navigator, 'plugins', {
-                        get: () => [1, 2, 3, 4, 5],
-                    });
-                    
-                    // Overwrite the `languages` property
-                    Object.defineProperty(navigator, 'languages', {
-                        get: () => ['en-AU', 'en'],
-                    });
-                });
-
-                // Set a longer timeout for navigation
-                gotoOptions.timeout = 60000;
-                gotoOptions.waitUntil = 'networkidle';
-            },
-        ],
+        // Use got-scraping with realistic headers (built into CheerioCrawler)
+        useSessionPool: true,
+        persistCookiesPerSession: true,
+        
+        // Additional request options for better stealth
+        additionalMimeTypes: ['application/json', 'text/plain'],
 
         // Request handler - this is where we extract data
-        async requestHandler({ request, page, log }) {
+        async requestHandler({ request, $, body, log }) {
             const { label } = request.userData;
             
             log.info(`Processing ${label}: ${request.url}`);
 
-            // Wait for the page to load completely
-            await page.waitForLoadState('networkidle', { timeout: 60000 });
-            
-            // Random delay to appear more human-like
-            const randomDelay = Math.floor(Math.random() * 3000) + 2000; // 2-5 seconds
-            await page.waitForTimeout(randomDelay);
-
             if (label === 'PROPERTY') {
-                // Extract property data
-                const data = await extractPropertyData(page, request.url, log);
+                // Extract property data using Cheerio
+                const data = extractPropertyData($, request.url, log);
                 
                 // Log extracted data
                 log.info(`Extracted property: ${data.address || 'Unknown address'}`);
