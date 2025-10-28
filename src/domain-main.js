@@ -195,7 +195,8 @@ try {
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         maxRequestsPerCrawl,
         maxRequestRetries: 3,
-        requestHandlerTimeoutSecs: 120,
+        requestHandlerTimeoutSecs: 180,
+        navigationTimeoutSecs: 120,
         maxConcurrency: 1,
         
         launchContext: {
@@ -205,9 +206,21 @@ try {
                     '--disable-blink-features=AutomationControlled',
                     '--disable-features=site-per-process',
                     '--disable-http2',  // Disable HTTP/2 to avoid protocol errors
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
                 ],
             },
         },
+        
+        // Use domcontentloaded instead of full page load
+        preNavigationHooks: [
+            async ({ page, request }) => {
+                page.setDefaultNavigationTimeout(120000); // 2 minutes
+            },
+        ],
         
         // Configure browser pool
         browserPoolOptions: {
@@ -225,8 +238,8 @@ try {
             if (label === 'SEARCH') {
                 log.info('Loading search page...');
                 
-                // Wait for property links to load
-                await page.waitForSelector('a.address', { timeout: 30000 });
+                // Wait for property links to load (longer timeout for slow proxies)
+                await page.waitForSelector('a.address', { timeout: 60000 });
                 log.info('Search page loaded successfully');
                 
                 // Extract property links from search results
@@ -259,8 +272,8 @@ try {
             } else if (label === 'PROPERTY') {
                 log.info('Loading property page...');
                 
-                // Wait for the main property info to load
-                await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 30000 });
+                // Wait for the main property info to load (longer timeout for slow proxies)
+                await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 60000 });
                 log.info('Property page loaded successfully');
                 
                 // Extract property data (including images from viewer)
