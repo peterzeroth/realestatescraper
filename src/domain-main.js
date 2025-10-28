@@ -1,130 +1,132 @@
 import { Actor } from 'apify';
-import { CheerioCrawler, Dataset } from 'crawlee';
+import { PlaywrightCrawler, Dataset } from 'crawlee';
 
 /**
- * Extracts property data from domain.com.au property page
+ * Extracts property data from domain.com.au property page using Playwright
  */
-function extractPropertyData($, url, log) {
+async function extractPropertyData(page, url, log) {
     try {
-        const data = {
-            url: url,
-            scrapedAt: new Date().toISOString(),
-            address: null,
-            suburb: null,
-            state: null,
-            postcode: null,
-            fullAddress: null,
-            price: null,
-            priceText: null,
-            propertyType: null,
-            bedrooms: null,
-            bathrooms: null,
-            parkingSpaces: null,
-            landSize: null,
-            buildingSize: null,
-            listingId: null,
-            images: [],
-            imageCount: 0,
-        };
+        // Extract basic property data using page.evaluate
+        const data = await page.evaluate((url) => {
+            const result = {
+                url: url,
+                scrapedAt: new Date().toISOString(),
+                address: null,
+                suburb: null,
+                state: null,
+                postcode: null,
+                fullAddress: null,
+                price: null,
+                priceText: null,
+                propertyType: null,
+                bedrooms: null,
+                bathrooms: null,
+                parkingSpaces: null,
+                landSize: null,
+                buildingSize: null,
+                listingId: null,
+                images: [],
+                imageCount: 0,
+            };
 
-        // Extract price
-        data.priceText = $('[data-testid="listing-details__summary-title"] span').first().text().trim() ||
-                        $('.css-twgrok span').first().text().trim() ||
-                        null;
-        
-        if (data.priceText) {
-            const priceMatch = data.priceText.match(/\$([0-9,]+)/);
-            if (priceMatch) {
-                data.price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-            }
-        }
-
-        // Extract full address from h1
-        const addressH1 = $('[data-testid="listing-details__button-copy-wrapper"] h1').first().text().trim() ||
-                         $('.css-hkh81z').first().text().trim();
-        
-        if (addressH1) {
-            data.fullAddress = addressH1;
-            const parts = addressH1.split(',').map(p => p.trim());
-            if (parts.length >= 2) {
-                data.address = parts[0];
-                const locationParts = parts[1].split(' ').filter(p => p);
-                if (locationParts.length >= 3) {
-                    data.suburb = locationParts[0];
-                    data.state = locationParts[1];
-                    data.postcode = locationParts[2];
+            // Extract price
+            const priceEl = document.querySelector('[data-testid="listing-details__summary-title"] span');
+            result.priceText = priceEl ? priceEl.textContent.trim() : null;
+            
+            if (result.priceText) {
+                const priceMatch = result.priceText.match(/\$([0-9,]+)/);
+                if (priceMatch) {
+                    result.price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
                 }
             }
-        }
 
-        // Extract features
-        const features = $('[data-testid="property-features-wrapper"]');
-        
-        // Bedrooms
-        const bedsText = features.find('span:contains("Beds")').closest('[data-testid="property-features-feature"]').find('[data-testid="property-features-text-container"]').first().text().trim();
-        if (bedsText) {
-            const bedsMatch = bedsText.match(/(\d+)/);
-            if (bedsMatch) data.bedrooms = parseInt(bedsMatch[1], 10);
-        }
-
-        // Bathrooms
-        const bathsText = features.find('span:contains("Baths")').closest('[data-testid="property-features-feature"]').find('[data-testid="property-features-text-container"]').first().text().trim();
-        if (bathsText) {
-            const bathsMatch = bathsText.match(/(\d+)/);
-            if (bathsMatch) data.bathrooms = parseInt(bathsMatch[1], 10);
-        }
-
-        // Parking
-        const parkingText = features.find('span:contains("Parking")').closest('[data-testid="property-features-feature"]').find('[data-testid="property-features-text-container"]').first().text().trim();
-        if (parkingText) {
-            const parkingMatch = parkingText.match(/(\d+)/);
-            if (parkingMatch) data.parkingSpaces = parseInt(parkingMatch[1], 10);
-        }
-
-        // Land size
-        features.find('[data-testid="property-features-text-container"]').each((i, el) => {
-            const text = $(el).text().trim();
-            if (text.includes('m²')) {
-                const sizeMatch = text.match(/(\d+)m²/);
-                if (sizeMatch) {
-                    data.landSize = parseInt(sizeMatch[1], 10);
+            // Extract full address from h1
+            const addressH1El = document.querySelector('[data-testid="listing-details__button-copy-wrapper"] h1');
+            const addressH1 = addressH1El ? addressH1El.textContent.trim() : null;
+            
+            if (addressH1) {
+                result.fullAddress = addressH1;
+                const parts = addressH1.split(',').map(p => p.trim());
+                if (parts.length >= 2) {
+                    result.address = parts[0];
+                    const locationParts = parts[1].split(' ').filter(p => p);
+                    if (locationParts.length >= 3) {
+                        result.suburb = locationParts[0];
+                        result.state = locationParts[1];
+                        result.postcode = locationParts[2];
+                    }
                 }
             }
-        });
 
-        // Property type
-        data.propertyType = $('[data-testid="listing-summary-property-type"] span').first().text().trim() ||
-                           $('.css-1efi8gv').first().text().trim() ||
-                           null;
+            // Extract features
+            const featureEls = document.querySelectorAll('[data-testid="property-features-feature"]');
+            featureEls.forEach(el => {
+                const text = el.textContent.trim();
+                const bedMatch = text.match(/(\d+)\s*Bed/i);
+                const bathMatch = text.match(/(\d+)\s*Bath/i);
+                const parkMatch = text.match(/(\d+)\s*Parking/i);
+                const landMatch = text.match(/(\d+)m²/);
+                
+                if (bedMatch) result.bedrooms = parseInt(bedMatch[1], 10);
+                if (bathMatch) result.bathrooms = parseInt(bathMatch[1], 10);
+                if (parkMatch) result.parkingSpaces = parseInt(parkMatch[1], 10);
+                if (landMatch) result.landSize = parseInt(landMatch[1], 10);
+            });
 
-        // Extract listing ID from URL
+            // Property type
+            const typeEl = document.querySelector('[data-testid="listing-summary-property-type"] span');
+            result.propertyType = typeEl ? typeEl.textContent.trim() : null;
+
+            return result;
+        }, url);
+
+        // Add listing ID from URL
         const idMatch = url.match(/-(\d+)$/);
         if (idMatch) {
             data.listingId = idMatch[1];
         }
 
-        // Extract images from the HTML (they're already loaded in photo thumbnails)
-        const imageUrls = new Set();
-        
-        // Look for images with domainstatic.com.au (property photos)
-        $('img[src*="domainstatic.com.au"]').each((i, el) => {
-            let src = $(el).attr('src');
-            if (src && !src.includes('data:image') && !src.includes('logo') && !src.includes('icon')) {
-                // Remove thumbnail parameters: /fit-in/144x106/filters:format(webp):quality(85):no_upscale()/
-                // Keep only the actual image filename with dimensions
-                src = src.replace(/\/fit-in\/\d+x\d+\/filters:[^/]+\//, '/');
-                
-                // Only add if it looks like a property image (has listing ID pattern)
-                if (src.match(/\d{10}_\d+_\d+_\d+_\d+-w\d+/)) {
-                    imageUrls.add(src);
-                }
-            }
-        });
+        log.info(`Extracted basic data: ${data.fullAddress || 'Unknown address'}`);
 
-        data.images = Array.from(imageUrls);
-        data.imageCount = data.images.length;
+        // Now click the Photos button to open the image viewer
+        log.info('Clicking Launch Photos button...');
         
-        log.info(`Found ${data.imageCount} property images`);
+        try {
+            const photosButton = await page.$('button[aria-label="Launch Photos"]');
+            if (photosButton) {
+                await photosButton.click();
+                log.info('Clicked Launch Photos button');
+                
+                // Wait for the image viewer carousel to appear
+                await page.waitForSelector('[data-testid="pswp-thumbnails-carousel"] .css-dk278u', { timeout: 10000 });
+                await page.waitForTimeout(2000); // Give images time to load
+                
+                // Extract all image URLs from the thumbnail carousel
+                data.images = await page.evaluate(() => {
+                    const imageUrls = [];
+                    const thumbnailImages = document.querySelectorAll('[data-testid="pswp-thumbnails-carousel"] .css-dk278u img[src*="domainstatic.com.au"]');
+                    
+                    thumbnailImages.forEach(img => {
+                        let src = img.src;
+                        if (src && !src.includes('data:image')) {
+                            // Remove thumbnail size and filters to get high-res URL
+                            // Example: /fit-in/144x106/filters:format(webp):quality(85):no_upscale()/ -> remove
+                            src = src.replace(/\/fit-in\/\d+x\d+\/filters:[^/]+\//, '/');
+                            imageUrls.push(src);
+                        }
+                    });
+                    
+                    return [...new Set(imageUrls)]; // Remove duplicates
+                });
+                
+                data.imageCount = data.images.length;
+                log.info(`Found ${data.imageCount} images in photo viewer`);
+            } else {
+                log.warning('Photos button not found');
+            }
+        } catch (error) {
+            log.warning(`Could not open photo viewer: ${error.message}`);
+        }
 
         return data;
     } catch (error) {
@@ -189,31 +191,45 @@ try {
         await Actor.exit();
     }
 
-    const crawler = new CheerioCrawler({
+    const crawler = new PlaywrightCrawler({
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         maxRequestsPerCrawl,
         maxRequestRetries: 3,
-        requestHandlerTimeoutSecs: 90,
+        requestHandlerTimeoutSecs: 120,
         maxConcurrency: 1,
+        
+        launchContext: {
+            launchOptions: {
+                headless: true,
+                args: [
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=site-per-process',
+                ],
+            },
+        },
         
         useSessionPool: true,
         persistCookiesPerSession: true,
 
-        async requestHandler({ request, $, log, crawler }) {
+        async requestHandler({ request, page, log, crawler }) {
             const { label } = request.userData;
             
             log.info(`Processing ${label}: ${request.url}`);
 
             if (label === 'SEARCH') {
-                // Extract property links from search results
-                const propertyLinks = [];
+                // Wait for page to load
+                await page.waitForLoadState('domcontentloaded');
                 
-                $('a.address').each((i, el) => {
-                    const href = $(el).attr('href');
-                    if (href && href.includes('domain.com.au') && href.match(/-\d+$/)) {
-                        const fullUrl = href.startsWith('http') ? href : `https://www.domain.com.au${href}`;
-                        propertyLinks.push(fullUrl);
-                    }
+                // Extract property links from search results
+                const propertyLinks = await page.evaluate(() => {
+                    const links = [];
+                    document.querySelectorAll('a.address').forEach(a => {
+                        const href = a.href;
+                        if (href && href.includes('domain.com.au') && href.match(/-\d+$/)) {
+                            links.push(href);
+                        }
+                    });
+                    return links;
                 });
 
                 log.info(`Found ${propertyLinks.length} property links on search page`);
@@ -232,8 +248,12 @@ try {
                 }
 
             } else if (label === 'PROPERTY') {
-                // Extract property data
-                const data = extractPropertyData($, request.url, log);
+                // Wait for page to load
+                await page.waitForLoadState('domcontentloaded');
+                await page.waitForTimeout(2000);
+                
+                // Extract property data (including images from viewer)
+                const data = await extractPropertyData(page, request.url, log);
                 
                 log.info(`Extracted: ${data.fullAddress || 'Unknown address'}`);
                 log.info(`Price: ${data.priceText}, Beds: ${data.bedrooms}, Baths: ${data.bathrooms}, Parking: ${data.parkingSpaces}`);
