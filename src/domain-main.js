@@ -224,9 +224,10 @@ try {
         proxyConfiguration: await Actor.createProxyConfiguration(proxyConfiguration),
         maxRequestsPerCrawl,
         maxRequestRetries: 3,
-        requestHandlerTimeoutSecs: 180,
-        navigationTimeoutSecs: 120,
+        requestHandlerTimeoutSecs: 60,
+        navigationTimeoutSecs: 30,
         maxConcurrency: 1,
+        minConcurrency: 1, // Keep 1 request always running (reduces queue delay)
         
         launchContext: {
             launchOptions: {
@@ -244,20 +245,14 @@ try {
             },
         },
         
-        // Use domcontentloaded instead of full page load
-        preNavigationHooks: [
-            async ({ page, request }) => {
-                page.setDefaultNavigationTimeout(120000); // 2 minutes
-            },
-        ],
-        
-        // Configure browser pool
+        // Configure browser pool for speed
         browserPoolOptions: {
             useFingerprints: false,
+            retireBrowserAfterPageCount: 100, // Reuse browser
         },
         
-        useSessionPool: true,
-        persistCookiesPerSession: true,
+        useSessionPool: false, // Disable for speed
+        persistCookiesPerSession: false,
 
         async requestHandler({ request, page, log, crawler }) {
             const { label } = request.userData;
