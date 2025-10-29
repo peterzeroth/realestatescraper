@@ -234,21 +234,31 @@ try {
                 headless: true,
                 args: [
                     '--disable-blink-features=AutomationControlled',
-                    '--disable-features=site-per-process',
-                    '--disable-http2',  // Disable HTTP/2 to avoid protocol errors
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
                     '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--disable-default-apps',
+                    '--metrics-recording-only',
+                    '--no-first-run',
+                    '--mute-audio',
+                    '--disable-notifications',
                 ],
             },
+            useChrome: false, // Use bundled Chromium (faster startup)
         },
         
         // Configure browser pool for speed
         browserPoolOptions: {
             useFingerprints: false,
             retireBrowserAfterPageCount: 100, // Reuse browser
+            maxOpenPagesPerBrowser: 5, // Allow multiple pages per browser
+            operationTimeoutSecs: 15, // Faster browser operations timeout
         },
         
         useSessionPool: false, // Disable for speed
