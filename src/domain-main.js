@@ -109,9 +109,10 @@ async function extractPropertyData(page, url, log) {
                     thumbnailImages.forEach(img => {
                         let src = img.src;
                         if (src && !src.includes('data:image')) {
-                            // Remove thumbnail size and filters to get high-res URL
-                            // Example: /fit-in/144x106/filters:format(webp):quality(85):no_upscale()/ -> remove
-                            src = src.replace(/\/fit-in\/\d+x\d+\/filters:[^/]+\//, '/');
+                            // Replace thumbnail dimensions with high-res dimensions
+                            // From: /fit-in/144x106/filters:format(webp):quality(85):no_upscale()/
+                            // To:   /fit-in/1920x1080/filters:format(webp):quality(85):no_upscale()/
+                            src = src.replace(/\/fit-in\/\d+x\d+\//, '/fit-in/1920x1080/');
                             imageUrls.push(src);
                         }
                     });
