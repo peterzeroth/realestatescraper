@@ -97,36 +97,62 @@ async function extractPropertyData(page, url, log) {
                 await photosButton.click();
                 log.info('Clicked Launch Photos button');
                 
-                // Wait for the image viewer carousel to appear
-                await page.waitForSelector('[data-testid="pswp-thumbnails-carousel"] .css-dk278u', { timeout: 10000 });
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Give images time to load
+                // Wait for the main image viewer to appear
+                await page.waitForSelector('img.pswp__img', { timeout: 10000 });
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Let first image load
                 
-                // Extract all image URLs from the thumbnail carousel
-                data.images = await page.evaluate(() => {
-                    const imageUrls = [];
-                    const thumbnailImages = document.querySelectorAll('[data-testid="pswp-thumbnails-carousel"] .css-dk278u img[src*="domainstatic.com.au"]');
-                    
-                    thumbnailImages.forEach(img => {
-                        let src = img.src;
-                        if (src && !src.includes('data:image')) {
-                            // Replace thumbnail dimensions with high-res dimensions
-                            // From: /fit-in/144x106/filters:format(webp):quality(85):no_upscale()/
-                            // To:   /fit-in/1920x1080/filters:format(webp):quality(85):no_upscale()/
-                            src = src.replace(/\/fit-in\/\d+x\d+\//, '/fit-in/1920x1080/');
-                            imageUrls.push(src);
-                        }
-                    });
-                    
-                    return [...new Set(imageUrls)]; // Remove duplicates
+                // Get total number of images from counter (e.g., "4 / 16")
+                const totalImages = await page.evaluate(() => {
+                    const counterEl = document.querySelector('.css-1ljuah8');
+                    if (counterEl) {
+                        const match = counterEl.textContent.match(/\d+\s*\/\s*(\d+)/);
+                        return match ? parseInt(match[1], 10) : 1;
+                    }
+                    return 1;
                 });
                 
+                log.info(`Photo viewer opened. Total images: ${totalImages}`);
+                
+                // Extract images by clicking through the carousel
+                const imageUrls = new Set();
+                
+                for (let i = 0; i < totalImages; i++) {
+                    // Extract current main image
+                    const currentImage = await page.evaluate(() => {
+                        const img = document.querySelector('img.pswp__img');
+                        return img ? img.src : null;
+                    });
+                    
+                    if (currentImage && !currentImage.includes('data:image')) {
+                        imageUrls.add(currentImage);
+                        log.info(`Extracted image ${i + 1}/${totalImages}`);
+                    }
+                    
+                    // Click next button if not the last image
+                    if (i < totalImages - 1) {
+                        const nextButton = await page.$('button.pswp__button.css-a0zf3');
+                        if (nextButton) {
+                            await nextButton.click();
+                            await new Promise(resolve => setTimeout(resolve, 800)); // Wait for image to load
+                        } else {
+                            log.warning('Next button not found, stopping carousel');
+                            break;
+                        }
+                    }
+                }
+                
+                data.images = Array.from(imageUrls);
                 data.imageCount = data.images.length;
-                log.info(`Found ${data.imageCount} images in photo viewer`);
+                log.info(`Successfully extracted ${data.imageCount} high-res images`);
             } else {
                 log.warning('Photos button not found');
+                data.images = [];
+                data.imageCount = 0;
             }
         } catch (error) {
             log.warning(`Could not open photo viewer: ${error.message}`);
+            data.images = [];
+            data.imageCount = 0;
         }
 
         return data;
