@@ -97,35 +97,52 @@ async function extractPropertyData(page, url, log) {
                 await photosButton.click();
                 log.info('Clicked Launch Photos button');
                 
-                // Wait for the thumbnail carousel to load (contains all images)
-                await page.waitForSelector('[data-testid="pswp-thumbnails-carousel"]', { timeout: 10000 });
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Let all thumbnails load
+                // Wait for viewer to open
+                await page.waitForSelector('img.pswp__img', { timeout: 10000 });
                 
-                log.info('Photo viewer opened, extracting images from thumbnail carousel...');
-                
-                // Extract ALL images from thumbnail carousel at once (FAST!)
-                const imageUrls = await page.evaluate(() => {
-                    const urls = new Set();
-                    
-                    // Get all thumbnail images
-                    const thumbnails = document.querySelectorAll('[data-testid="pswp-thumbnails-carousel"] img[src*="domainstatic.com.au"]');
-                    
-                    thumbnails.forEach(img => {
-                        let src = img.src;
-                        if (src && !src.includes('data:image')) {
-                            // Replace thumbnail dimensions with high-res
-                            // From: /fit-in/144x106/ To: /fit-in/1920x1080/
-                            src = src.replace(/\/fit-in\/\d+x\d+\//, '/fit-in/1920x1080/');
-                            urls.add(src);
-                        }
-                    });
-                    
-                    return Array.from(urls);
+                // Get total images
+                const totalImages = await page.evaluate(() => {
+                    const counterEl = document.querySelector('.css-1ljuah8');
+                    if (counterEl) {
+                        const match = counterEl.textContent.match(/\d+\s*\/\s*(\d+)/);
+                        return match ? parseInt(match[1], 10) : 1;
+                    }
+                    return 1;
                 });
                 
-                data.images = imageUrls;
+                log.info(`Photo viewer opened. Extracting ${totalImages} images (fast mode)...`);
+                
+                const imageUrls = new Set();
+                const nextButton = await page.$('button.pswp__button.css-a0zf3');
+                
+                // Fast extraction: minimal waits
+                for (let i = 0; i < totalImages; i++) {
+                    // Quick wait for image to appear (300ms instead of 1500ms)
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Extract current center image
+                    const currentImage = await page.evaluate(() => {
+                        const currentItem = document.querySelector('[data-testid="pswp-current-item"]');
+                        if (currentItem) {
+                            const img = currentItem.querySelector('img.pswp__img:not(.pswp__img--placeholder)');
+                            return img?.src || null;
+                        }
+                        return null;
+                    });
+                    
+                    if (currentImage && !currentImage.includes('data:image')) {
+                        imageUrls.add(currentImage);
+                    }
+                    
+                    // Click next immediately (no wait)
+                    if (i < totalImages - 1 && nextButton) {
+                        await nextButton.click();
+                    }
+                }
+                
+                data.images = Array.from(imageUrls);
                 data.imageCount = data.images.length;
-                log.info(`Successfully extracted ${data.imageCount} high-res images in one pass`);
+                log.info(`Extracted ${data.imageCount} high-res images in ${totalImages * 0.3}s`);
             } else {
                 log.warning('Photos button not found');
                 data.images = [];
