@@ -97,52 +97,55 @@ async function extractPropertyData(page, url, log) {
                 await photosButton.click();
                 log.info('Clicked Launch Photos button');
                 
-                // Wait for viewer to open
-                await page.waitForSelector('img.pswp__img', { timeout: 10000 });
+                // Wait for viewer to open (reduced timeout)
+                await page.waitForSelector('img.pswp__img', { timeout: 5000 });
                 
-                // Get total images
-                const totalImages = await page.evaluate(() => {
+                // Get total images and extract all at once
+                const result = await page.evaluate(async () => {
                     const counterEl = document.querySelector('.css-1ljuah8');
-                    if (counterEl) {
-                        const match = counterEl.textContent.match(/\d+\s*\/\s*(\d+)/);
-                        return match ? parseInt(match[1], 10) : 1;
+                    const totalImages = counterEl ? 
+                        (parseInt(counterEl.textContent.match(/\d+\s*\/\s*(\d+)/)?.[1]) || 1) : 1;
+                    
+                    const imageUrls = new Set();
+                    const nextBtn = document.querySelector('button.pswp__button.css-a0zf3');
+                    
+                    for (let i = 0; i < totalImages; i++) {
+                        // Wait for image to be non-placeholder (check every 50ms, max 500ms)
+                        let attempts = 0;
+                        let currentImg = null;
+                        
+                        while (attempts < 10) {
+                            const currentItem = document.querySelector('[data-testid="pswp-current-item"]');
+                            const img = currentItem?.querySelector('img.pswp__img:not(.pswp__img--placeholder)');
+                            
+                            if (img?.src && !img.src.includes('data:image') && img.complete) {
+                                currentImg = img.src;
+                                break;
+                            }
+                            
+                            await new Promise(r => setTimeout(r, 50));
+                            attempts++;
+                        }
+                        
+                        if (currentImg) {
+                            imageUrls.add(currentImg);
+                        }
+                        
+                        // Click next
+                        if (i < totalImages - 1 && nextBtn) {
+                            nextBtn.click();
+                        }
                     }
-                    return 1;
+                    
+                    return {
+                        totalImages,
+                        images: Array.from(imageUrls)
+                    };
                 });
                 
-                log.info(`Photo viewer opened. Extracting ${totalImages} images (fast mode)...`);
-                
-                const imageUrls = new Set();
-                const nextButton = await page.$('button.pswp__button.css-a0zf3');
-                
-                // Fast extraction: minimal waits
-                for (let i = 0; i < totalImages; i++) {
-                    // Quick wait for image to appear (300ms instead of 1500ms)
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                    
-                    // Extract current center image
-                    const currentImage = await page.evaluate(() => {
-                        const currentItem = document.querySelector('[data-testid="pswp-current-item"]');
-                        if (currentItem) {
-                            const img = currentItem.querySelector('img.pswp__img:not(.pswp__img--placeholder)');
-                            return img?.src || null;
-                        }
-                        return null;
-                    });
-                    
-                    if (currentImage && !currentImage.includes('data:image')) {
-                        imageUrls.add(currentImage);
-                    }
-                    
-                    // Click next immediately (no wait)
-                    if (i < totalImages - 1 && nextButton) {
-                        await nextButton.click();
-                    }
-                }
-                
-                data.images = Array.from(imageUrls);
+                data.images = result.images;
                 data.imageCount = data.images.length;
-                log.info(`Extracted ${data.imageCount} high-res images in ${totalImages * 0.3}s`);
+                log.info(`Extracted ${data.imageCount}/${result.totalImages} high-res images`);
             } else {
                 log.warning('Photos button not found');
                 data.images = [];
@@ -264,8 +267,8 @@ try {
             if (label === 'SEARCH') {
                 log.info('Loading search page...');
                 
-                // Wait for property cards to load
-                await page.waitForSelector('[data-testid="listing-card-lazy-image"]', { timeout: 60000 });
+                // Wait for property cards to load (reduced timeout)
+                await page.waitForSelector('[data-testid="listing-card-lazy-image"]', { timeout: 15000 });
                 log.info('Search page loaded successfully');
                 
                 // Extract property links from search results
@@ -300,8 +303,8 @@ try {
             } else if (label === 'PROPERTY') {
                 log.info('Loading property page...');
                 
-                // Wait for the main property info to load (longer timeout for slow proxies)
-                await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 60000 });
+                // Wait for the main property info to load (reduced timeout)
+                await page.waitForSelector('[data-testid="listing-details__summary-title"]', { timeout: 15000 });
                 log.info('Property page loaded successfully');
                 
                 // Extract property data (including images from viewer)
