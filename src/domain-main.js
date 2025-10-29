@@ -117,15 +117,29 @@ async function extractPropertyData(page, url, log) {
                 const imageUrls = new Set();
                 
                 for (let i = 0; i < totalImages; i++) {
-                    // Extract current main image
+                    // Wait for the actual high-res image to load (not placeholder)
+                    await new Promise(resolve => setTimeout(resolve, 1500)); // Give image time to fully load
+                    
+                    // Extract current main image (should be high-res now)
                     const currentImage = await page.evaluate(() => {
-                        const img = document.querySelector('img.pswp__img');
-                        return img ? img.src : null;
+                        // Find the visible main image (not placeholder)
+                        const images = document.querySelectorAll('img.pswp__img');
+                        for (const img of images) {
+                            if (img.style.display !== 'none' && 
+                                img.src && 
+                                !img.src.includes('data:image') &&
+                                !img.classList.contains('pswp__img--placeholder')) {
+                                return img.src;
+                            }
+                        }
+                        return null;
                     });
                     
-                    if (currentImage && !currentImage.includes('data:image')) {
+                    if (currentImage) {
                         imageUrls.add(currentImage);
-                        log.info(`Extracted image ${i + 1}/${totalImages}`);
+                        log.info(`Extracted image ${i + 1}/${totalImages}: ${currentImage.substring(0, 80)}...`);
+                    } else {
+                        log.warning(`Could not extract image ${i + 1}/${totalImages}`);
                     }
                     
                     // Click next button if not the last image
@@ -133,7 +147,7 @@ async function extractPropertyData(page, url, log) {
                         const nextButton = await page.$('button.pswp__button.css-a0zf3');
                         if (nextButton) {
                             await nextButton.click();
-                            await new Promise(resolve => setTimeout(resolve, 800)); // Wait for image to load
+                            // Don't wait here - wait at start of next iteration
                         } else {
                             log.warning('Next button not found, stopping carousel');
                             break;
