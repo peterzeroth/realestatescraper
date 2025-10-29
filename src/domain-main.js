@@ -120,15 +120,16 @@ async function extractPropertyData(page, url, log) {
                     // Wait for the actual high-res image to load (not placeholder)
                     await new Promise(resolve => setTimeout(resolve, 1500)); // Give image time to fully load
                     
-                    // Extract current main image (should be high-res now)
+                    // Extract ONLY the current/active center image
                     const currentImage = await page.evaluate(() => {
-                        // Find the visible main image (not placeholder)
-                        const images = document.querySelectorAll('img.pswp__img');
-                        for (const img of images) {
-                            if (img.style.display !== 'none' && 
-                                img.src && 
-                                !img.src.includes('data:image') &&
-                                !img.classList.contains('pswp__img--placeholder')) {
+                        // Find the current active item in the carousel
+                        const currentItem = document.querySelector('[data-testid="pswp-current-item"]') ||
+                                          document.querySelector('.pswp__item:not([style*="display: none"])');
+                        
+                        if (currentItem) {
+                            // Get the main image from the current item
+                            const img = currentItem.querySelector('img.pswp__img:not(.pswp__img--placeholder)');
+                            if (img && img.src && !img.src.includes('data:image')) {
                                 return img.src;
                             }
                         }
