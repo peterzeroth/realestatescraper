@@ -97,68 +97,35 @@ async function extractPropertyData(page, url, log) {
                 await photosButton.click();
                 log.info('Clicked Launch Photos button');
                 
-                // Wait for the main image viewer to appear
-                await page.waitForSelector('img.pswp__img', { timeout: 10000 });
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Let first image load
+                // Wait for the thumbnail carousel to load (contains all images)
+                await page.waitForSelector('[data-testid="pswp-thumbnails-carousel"]', { timeout: 10000 });
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Let all thumbnails load
                 
-                // Get total number of images from counter (e.g., "4 / 16")
-                const totalImages = await page.evaluate(() => {
-                    const counterEl = document.querySelector('.css-1ljuah8');
-                    if (counterEl) {
-                        const match = counterEl.textContent.match(/\d+\s*\/\s*(\d+)/);
-                        return match ? parseInt(match[1], 10) : 1;
-                    }
-                    return 1;
-                });
+                log.info('Photo viewer opened, extracting images from thumbnail carousel...');
                 
-                log.info(`Photo viewer opened. Total images: ${totalImages}`);
-                
-                // Extract images by clicking through the carousel
-                const imageUrls = new Set();
-                
-                for (let i = 0; i < totalImages; i++) {
-                    // Wait for the actual high-res image to load (not placeholder)
-                    await new Promise(resolve => setTimeout(resolve, 1500)); // Give image time to fully load
+                // Extract ALL images from thumbnail carousel at once (FAST!)
+                const imageUrls = await page.evaluate(() => {
+                    const urls = new Set();
                     
-                    // Extract ONLY the current/active center image
-                    const currentImage = await page.evaluate(() => {
-                        // Find the current active item in the carousel
-                        const currentItem = document.querySelector('[data-testid="pswp-current-item"]') ||
-                                          document.querySelector('.pswp__item:not([style*="display: none"])');
-                        
-                        if (currentItem) {
-                            // Get the main image from the current item
-                            const img = currentItem.querySelector('img.pswp__img:not(.pswp__img--placeholder)');
-                            if (img && img.src && !img.src.includes('data:image')) {
-                                return img.src;
-                            }
+                    // Get all thumbnail images
+                    const thumbnails = document.querySelectorAll('[data-testid="pswp-thumbnails-carousel"] img[src*="domainstatic.com.au"]');
+                    
+                    thumbnails.forEach(img => {
+                        let src = img.src;
+                        if (src && !src.includes('data:image')) {
+                            // Replace thumbnail dimensions with high-res
+                            // From: /fit-in/144x106/ To: /fit-in/1920x1080/
+                            src = src.replace(/\/fit-in\/\d+x\d+\//, '/fit-in/1920x1080/');
+                            urls.add(src);
                         }
-                        return null;
                     });
                     
-                    if (currentImage) {
-                        imageUrls.add(currentImage);
-                        log.info(`Extracted image ${i + 1}/${totalImages}: ${currentImage.substring(0, 80)}...`);
-                    } else {
-                        log.warning(`Could not extract image ${i + 1}/${totalImages}`);
-                    }
-                    
-                    // Click next button if not the last image
-                    if (i < totalImages - 1) {
-                        const nextButton = await page.$('button.pswp__button.css-a0zf3');
-                        if (nextButton) {
-                            await nextButton.click();
-                            // Don't wait here - wait at start of next iteration
-                        } else {
-                            log.warning('Next button not found, stopping carousel');
-                            break;
-                        }
-                    }
-                }
+                    return Array.from(urls);
+                });
                 
-                data.images = Array.from(imageUrls);
+                data.images = imageUrls;
                 data.imageCount = data.images.length;
-                log.info(`Successfully extracted ${data.imageCount} high-res images`);
+                log.info(`Successfully extracted ${data.imageCount} high-res images in one pass`);
             } else {
                 log.warning('Photos button not found');
                 data.images = [];
